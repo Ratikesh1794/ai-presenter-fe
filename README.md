@@ -43,15 +43,10 @@ Gallery:
 
 ![Upload Screen](./public/screenshots/upload-screen.png)
 ![Presentation Screen](./public/screenshots/presentation-screen.png)
-If you capture a third screen for interruption mode, add:
-
-- `voice-interruption.png`
 
 ## Demo Video
 
-<video src="./public/screenshots/Presento-Demo.mp4" controls width="100%"></video>
-
-[Watch Demo Video](./public/screenshots/Presento-Demo.mp4)
+🎥 **[Watch Demo on Google Drive](https://drive.google.com/file/d/1sCbdme3eqGgLiYSuIdM89lmmLpLjkvlp/view?usp=sharing)**
 
 ## Prerequisites
 
@@ -102,5 +97,6 @@ pnpm preview
 ## Backend Dependency
 
 Frontend requires the backend to be reachable at:
+
 - `VITE_API_URL`
 - `VITE_WS_URL`
