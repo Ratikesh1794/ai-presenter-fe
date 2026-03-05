@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 
 export type ClientMessage =
   | { type: "load_deck"; session_id: string }
+  | { type: "start_presentation" }
   | { type: "user_speech"; text: string }
   | { type: "interrupt" }
   | { type: "slide_changed"; index: number };
@@ -11,6 +12,7 @@ export type ServerMessage =
   | { type: "speak"; text: string }
   | { type: "status"; state: AgentStatus }
   | { type: "interrupted" }
+  | { type: "presentation_complete" }
   | { type: "error"; message: string };
 
 export type AgentStatus = "idle" | "listening" | "thinking" | "speaking";
@@ -33,17 +35,13 @@ export function useWebSocket({ onMessage, onConnectionChange }: UseWebSocketOpti
   const onMessageRef = useRef(onMessage);
   const onConnectionChangeRef = useRef(onConnectionChange);
   const connectRef = useRef<() => void>(() => {});
-
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected");
 
-  // Sync latest callbacks into refs after every render
   useLayoutEffect(() => {
     onMessageRef.current = onMessage;
     onConnectionChangeRef.current = onConnectionChange;
   });
 
-  // ── updateStatus — only called from async callbacks (onopen/onclose/onerror)
-  // so setState never fires synchronously inside an effect body
   const updateStatus = useCallback((status: ConnectionStatus) => {
     setConnectionStatus(status);
     onConnectionChangeRef.current?.(status);
@@ -57,35 +55,23 @@ export function useWebSocket({ onMessage, onConnectionChange }: UseWebSocketOpti
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
-    ws.onopen = () => {
-      reconnectAttemptsRef.current = 0;
-      updateStatus("connected");
-    };
-
+    ws.onopen = () => { reconnectAttemptsRef.current = 0; updateStatus("connected"); };
     ws.onmessage = (event: MessageEvent) => {
       try { onMessageRef.current(JSON.parse(event.data as string)); }
-      catch { console.error("[WS] Failed to parse message:", event.data); }
+      catch { console.error("[WS] Parse error:", event.data); }
     };
-
     ws.onerror = () => { updateStatus("error"); };
-
     ws.onclose = () => {
       if (!isMountedRef.current) return;
       updateStatus("disconnected");
       if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttemptsRef.current += 1;
-        reconnectTimerRef.current = setTimeout(
-          () => connectRef.current(),
-          RECONNECT_DELAY_MS
-        );
+        reconnectTimerRef.current = setTimeout(() => connectRef.current(), RECONNECT_DELAY_MS);
       }
     };
   }, [updateStatus]);
 
-  // Keep connectRef current after every render
-  useLayoutEffect(() => {
-    connectRef.current = connect;
-  });
+  useLayoutEffect(() => { connectRef.current = connect; });
 
   const disconnect = useCallback(() => {
     if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
@@ -97,21 +83,14 @@ export function useWebSocket({ onMessage, onConnectionChange }: UseWebSocketOpti
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(msg));
     } else {
-      console.warn("[WS] Cannot send — socket not open:", msg);
+      console.warn("[WS] Cannot send — not open:", msg.type);
     }
   }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
-    // Defer initial connection by one tick so no setState fires
-    // synchronously inside this effect body
-    const timer = setTimeout(() => connectRef.current(), 0);
-    return () => {
-      clearTimeout(timer);
-      isMountedRef.current = false;
-      disconnect();
-    };
-  // connect/disconnect intentionally omitted — we use connectRef instead
+    const t = setTimeout(() => connectRef.current(), 0);
+    return () => { clearTimeout(t); isMountedRef.current = false; disconnect(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

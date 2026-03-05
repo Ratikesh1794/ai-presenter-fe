@@ -4,12 +4,15 @@ import type { AgentStatus, ConnectionStatus, ServerMessage } from "./useWebSocke
 import { useWebSocket } from "./useWebSocket";
 import { useVoice } from "./useVoice";
 
+export type PresentationPhase = "idle" | "presenting" | "answering_doubt" | "complete";
+
 export function usePresentation() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("idle");
   const [lastAgentText, setLastAgentText] = useState("");
   const [transcript, setTranscript] = useState("");
+  const [phase, setPhase] = useState<PresentationPhase>("idle");
 
   const currentSlideRef = useRef(0);
   const slidesRef = useRef<Slide[]>([]);
@@ -17,32 +20,40 @@ export function usePresentation() {
 
   const pendingSessionRef = useRef<string | null>(null);
   const connectionStatusRef = useRef<ConnectionStatus>("disconnected");
-
-  // Keep send in a ref so handleConnectionChange can always call the latest version
   const sendRef = useRef<ReturnType<typeof useWebSocket>["send"] | null>(null);
 
-  // ── WebSocket message handler ─────────────────────────────────────────────
+  // ── Server message handler ────────────────────────────────────────────────
 
   const handleServerMessage = useCallback((msg: ServerMessage) => {
     switch (msg.type) {
       case "status":
         setAgentStatus(msg.state);
         break;
+
       case "change_slide": {
         const idx = Math.max(0, Math.min(msg.index, slidesRef.current.length - 1));
         setCurrentSlide(idx);
         currentSlideRef.current = idx;
+        // Acknowledge back to backend
         sendRef.current?.({ type: "slide_changed", index: idx });
         break;
       }
+
       case "speak":
         setAgentStatus("speaking");
         setLastAgentText(msg.text);
         voice.speak(msg.text, () => setAgentStatus("idle"));
         break;
+
       case "interrupted":
         setAgentStatus("idle");
         break;
+
+      case "presentation_complete":
+        setPhase("complete");
+        setAgentStatus("idle");
+        break;
+
       case "error":
         console.error("[Agent error]", msg.message);
         break;
@@ -51,12 +62,10 @@ export function usePresentation() {
   }, []);
 
   const handleConnectionChange = useCallback((status: ConnectionStatus) => {
-    console.log("[usePresentation] Connection status changed:", status);
     connectionStatusRef.current = status;
     if (status === "connected" && pendingSessionRef.current) {
       const sessionId = pendingSessionRef.current;
       pendingSessionRef.current = null;
-      console.log("[usePresentation] Flushing queued load_deck:", sessionId);
       sendRef.current?.({ type: "load_deck", session_id: sessionId });
     }
   }, []);
@@ -66,7 +75,6 @@ export function usePresentation() {
     onConnectionChange: handleConnectionChange,
   });
 
-  // Keep sendRef current so closures always use latest send
   sendRef.current = send;
 
   // ── Voice ─────────────────────────────────────────────────────────────────
@@ -74,6 +82,7 @@ export function usePresentation() {
   const handleTranscript = useCallback((text: string) => {
     setTranscript(text);
     setAgentStatus("thinking");
+    setPhase("answering_doubt");
     send({ type: "user_speech", text });
   }, [send]);
 
@@ -84,31 +93,32 @@ export function usePresentation() {
 
   const voice = useVoice({ onTranscript: handleTranscript, onInterrupt: handleInterrupt });
 
+  // ── Start presentation ────────────────────────────────────────────────────
+
+  const startPresentation = useCallback(() => {
+    setPhase("presenting");
+    setCurrentSlide(0);
+    currentSlideRef.current = 0;
+    setLastAgentText("");
+    setTranscript("");
+    send({ type: "start_presentation" });
+  }, [send]);
+
   // ── Load slides after upload ──────────────────────────────────────────────
 
   const loadSlides = useCallback((newSlides: Slide[], sessionId?: string) => {
-    console.log("[usePresentation] loadSlides called:", {
-      slideCount: newSlides.length,
-      sessionId,
-      connectionStatus: connectionStatusRef.current,
-    });
-
     setSlides(newSlides);
     setCurrentSlide(0);
     setLastAgentText("");
     setTranscript("");
+    setPhase("idle");
     currentSlideRef.current = 0;
 
-    if (!sessionId) {
-      console.warn("[usePresentation] No sessionId provided to loadSlides");
-      return;
-    }
+    if (!sessionId) return;
 
     if (connectionStatusRef.current === "connected") {
-      console.log("[usePresentation] Socket connected — sending load_deck immediately");
       sendRef.current?.({ type: "load_deck", session_id: sessionId });
     } else {
-      console.log("[usePresentation] Socket not ready (", connectionStatusRef.current, ") — queuing load_deck");
       pendingSessionRef.current = sessionId;
     }
   }, []);
@@ -127,9 +137,10 @@ export function usePresentation() {
 
   return {
     slides, currentSlide, loadSlides, goToSlide, nextSlide, prevSlide,
+    phase, startPresentation,
     agentStatus, lastAgentText, transcript,
     voiceState: voice.voiceState, volume: voice.volume, isSupported: voice.isSupported,
     startListening: voice.startListening, stopListening: voice.stopListening, interrupt: voice.interrupt,
-    connectionStatus, reconnect,
+    connectionStatus, reconnect, send,
   };
 }
