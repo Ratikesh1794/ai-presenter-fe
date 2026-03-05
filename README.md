@@ -34,13 +34,6 @@ This application provides the user-facing presentation experience: upload, live 
 
 ## UI Screenshots
 
-Store screenshots in `frontend/public/screenshots/`. The README currently uses:
-
-- `upload-screen.png`
-- `presentation-screen.png`
-
-Gallery:
-
 ![Upload Screen](./public/screenshots/upload-screen.png)
 ![Presentation Screen](./public/screenshots/presentation-screen.png)
 
