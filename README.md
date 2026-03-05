@@ -1,73 +1,95 @@
-# React + TypeScript + Vite
+# PresenterAI Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The frontend is the live stage for PresenterAI. It handles deck upload, renders visual slides, captures audience speech, plays AI narration, and keeps the UI synchronized with backend presentation control events.
 
-Currently, two official plugins are available:
+## What This App Does
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Accepts `.pptx` upload from the user.
+- Displays parsed slides with backend-generated images.
+- Opens a persistent WebSocket session with the backend.
+- Drives the presentation lifecycle from the browser:
+  - start presentation
+  - receive slide navigation instructions
+  - render narrated text in real time
+  - allow voice interruption for doubts
+- Uses Web Speech APIs for speech-to-text and text-to-speech.
 
-## React Compiler
+## Basic System Design
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### UI and State Layers
 
-## Expanding the ESLint configuration
+- `src/components/Uploadscreen.tsx`: file upload and upload state UI.
+- `src/hooks/usePresentation.ts`: central presentation state orchestration.
+- `src/hooks/useWebSocket.ts`: resilient WebSocket client with reconnect logic.
+- `src/hooks/useVoice.ts`: browser speech recognition and synthesis integration.
+- `src/slides/slideData.ts`: upload API call, data shaping, and slide enrichment.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Frontend Workflow
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+1. User uploads a deck from the upload screen.
+2. Frontend sends file to backend `POST /upload`.
+3. Response returns `session_id` and slide metadata.
+4. Frontend opens WebSocket and sends `load_deck`.
+5. On user action, frontend sends `start_presentation`.
+6. Backend emits `change_slide`, `speak`, and `status`; frontend updates UI and voice playback.
+7. If user speaks a question, frontend sends `user_speech`; backend handles interruption and resumes flow.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Prerequisites
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Node.js 18+ recommended
+- pnpm (or npm/yarn, though this project is configured with pnpm lockfile)
+
+## Environment Configuration
+
+Create `frontend/.env` from the example:
+
+```bash
+cp .env.example .env
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Expected variables:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+VITE_WS_URL=ws://localhost:8000/ws
+VITE_API_URL=http://localhost:8000
 ```
+
+Use your deployed backend URLs in non-local environments.
+
+## Installation
+
+From the `frontend` directory:
+
+```bash
+pnpm install
+```
+
+## Run in Development
+
+```bash
+pnpm dev
+```
+
+Default local URL:
+- `http://localhost:5173`
+
+## Build and Preview
+
+```bash
+pnpm build
+pnpm preview
+```
+
+## Browser Notes
+
+- Microphone permissions are required for speech recognition.
+- Speech synthesis voice availability depends on browser/OS voice packs.
+- For best results, use a Chromium-based browser with Web Speech API support.
+
+## Backend Dependency
+
+This frontend requires the backend service to be running and reachable at:
+- `VITE_API_URL`
+- `VITE_WS_URL`
+
+If upload works but presentation control does not, verify WebSocket URL and CORS settings on the backend.
