@@ -151,6 +151,29 @@ export const GlobalStyles = () => (
     }
     .ds-pulse-dot { animation: ds-pulse-cyan 2s ease-in-out infinite; }
 
+    /* ── AI Speaking pulse glow ──────────────────────────────────────────── */
+    @keyframes speakingGlowLeft {
+      0%, 100% { 
+        opacity: 0.7;
+        transform: translateY(-50%) translateX(0);
+      }
+      50% { 
+        opacity: 1;
+        transform: translateY(-50%) translateX(15px);
+      }
+    }
+    
+    @keyframes speakingGlowRight {
+      0%, 100% { 
+        opacity: 1;
+        transform: translateY(-50%) translateX(0);
+      }
+      50% { 
+        opacity: 0.7;
+        transform: translateY(-50%) translateX(-15px);
+      }
+    }
+
     /* ── Primary button ──────────────────────────────────────────────────── */
     .ds-btn-primary {
       position: relative; overflow: hidden;
