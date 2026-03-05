@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { VoiceState } from "../hooks/useVoice";
 import type { AgentStatus } from "../hooks/useWebSocket";
+import { theme } from "../theme";
 
 interface VoiceOrbProps {
   voiceState: VoiceState;
@@ -12,14 +13,14 @@ interface VoiceOrbProps {
 
 export function VoiceOrb({ voiceState, agentStatus, volume, onClick, accent }: VoiceOrbProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animRef = useRef<number | null>(null);
-  const phaseRef = useRef(0);
+  const animRef   = useRef<number | null>(null);
+  const phaseRef  = useRef(0);
 
   const isListening = voiceState === "listening";
-  const isSpeaking = voiceState === "speaking";
-  const isThinking = agentStatus === "thinking";
+  const isSpeaking  = voiceState === "speaking";
+  const isThinking  = agentStatus === "thinking";
 
-  // Draw animated waveform ring on canvas
+  // ── Canvas waveform ring — logic unchanged ────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -33,15 +34,20 @@ export function VoiceOrb({ voiceState, agentStatus, volume, onClick, accent }: V
       ctx.clearRect(0, 0, W, H);
 
       if (isListening || isSpeaking) {
-        const baseR = 46;
+        const baseR  = 46;
         const points = 64;
-        const amp = isListening ? volume * 18 : isSpeaking ? 8 + Math.sin(phaseRef.current * 2) * 6 : 0;
+        const amp    = isListening
+          ? volume * 18
+          : isSpeaking
+          ? 8 + Math.sin(phaseRef.current * 2) * 6
+          : 0;
 
         ctx.beginPath();
         for (let i = 0; i <= points; i++) {
           const angle = (i / points) * Math.PI * 2;
-          const noise = Math.sin(angle * 4 + phaseRef.current) * amp
-            + Math.sin(angle * 7 - phaseRef.current * 1.3) * amp * 0.5;
+          const noise =
+            Math.sin(angle * 4 + phaseRef.current) * amp +
+            Math.sin(angle * 7 - phaseRef.current * 1.3) * amp * 0.5;
           const r = baseR + noise;
           const x = cx + Math.cos(angle) * r;
           const y = cy + Math.sin(angle) * r;
@@ -54,10 +60,10 @@ export function VoiceOrb({ voiceState, agentStatus, volume, onClick, accent }: V
         ctx.closePath();
 
         const grad = ctx.createRadialGradient(cx, cy, baseR - 4, cx, cy, baseR + amp + 4);
-        grad.addColorStop(0, `${accent}88`);
+        grad.addColorStop(0, `${accent}90`);
         grad.addColorStop(1, `${accent}00`);
         ctx.strokeStyle = grad;
-        ctx.lineWidth = 2;
+        ctx.lineWidth   = 1.8;
         ctx.stroke();
       }
 
@@ -66,77 +72,114 @@ export function VoiceOrb({ voiceState, agentStatus, volume, onClick, accent }: V
     };
 
     animRef.current = requestAnimationFrame(draw);
-    return () => {
-      if (animRef.current) cancelAnimationFrame(animRef.current);
-    };
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, [isListening, isSpeaking, volume, accent]);
 
+  // ── Status label ──────────────────────────────────────────────────────────
   const label = isThinking
-    ? "Thinking…"
+    ? "Thinking"
     : isListening
-    ? "Listening…"
+    ? "Listening"
     : isSpeaking
-    ? "Speaking…"
-    : "Hold to speak";
+    ? "Speaking"
+    : "Click to speak";
+
+  // ── Orb background / border based on state ────────────────────────────────
+  const orbBackground = isListening
+    ? `radial-gradient(circle at 40% 35%, ${accent}50 0%, ${accent}28 50%, ${accent}0c 100%)`
+    : isThinking
+    ? `radial-gradient(circle at 40% 35%, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.05) 100%)`
+    : `radial-gradient(circle at 40% 35%, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)`;
+
+  const orbBorder = isListening
+    ? `1.5px solid ${accent}80`
+    : isThinking
+    ? `1.5px solid rgba(255,255,255,0.22)`
+    : `1.5px solid rgba(255,255,255,0.12)`;
+
+  const orbShadow = isListening
+    ? `0 0 40px ${accent}45, 0 0 80px ${accent}18, inset 0 0 28px ${accent}18`
+    : isSpeaking
+    ? `0 0 24px ${accent}30`
+    : "none";
 
   return (
-    <div className="flex flex-col items-center gap-3 select-none">
-      <div className="relative">
-        {/* Canvas waveform */}
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, userSelect: "none" }}>
+
+      {/* ── Orb + canvas wrapper ─────────────────────────────────────────── */}
+      <div style={{ position: "relative" }}>
+
+        {/* Waveform canvas — same size/offset as original */}
         <canvas
           ref={canvasRef}
           width={120}
           height={120}
-          className="absolute inset-0 pointer-events-none"
-          style={{ transform: "translate(-10px, -10px)" }}
+          style={{
+            position:      "absolute",
+            inset:         0,
+            pointerEvents: "none",
+            transform:     "translate(-10px, -10px)",
+          }}
         />
 
-        {/* The orb button */}
+        {/* Outer glow ring — decorative only */}
+        {(isListening || isSpeaking) && (
+          <div style={{
+            position:     "absolute",
+            inset:        -8,
+            borderRadius: "50%",
+            border:       `1px solid ${accent}20`,
+            animation:    "ds-orb-ring 2.5s ease-in-out infinite",
+            pointerEvents: "none",
+          }} />
+        )}
+
+        {/* ── Orb button ───────────────────────────────────────────────── */}
         <button
           onClick={onClick}
-          className="relative w-[100px] h-[100px] rounded-full flex items-center justify-center transition-transform duration-150 active:scale-95"
           style={{
-            background: isListening
-              ? `radial-gradient(circle, ${accent}44 0%, ${accent}22 60%, transparent 100%)`
-              : isThinking
-              ? "radial-gradient(circle, #ffffff14 0%, #ffffff08 100%)"
-              : "radial-gradient(circle, #ffffff0a 0%, transparent 100%)",
-            border: `1.5px solid ${isListening ? accent : isThinking ? "#ffffff30" : "#ffffff18"}`,
-            boxShadow: isListening
-              ? `0 0 32px ${accent}50, inset 0 0 24px ${accent}20`
-              : "none",
+            position:       "relative",
+            width:          100,
+            height:         100,
+            borderRadius:   "50%",
+            display:        "flex",
+            alignItems:     "center",
+            justifyContent: "center",
+            background:     orbBackground,
+            border:         orbBorder,
+            boxShadow:      orbShadow,
+            cursor:         "pointer",
+            transition:     "transform 0.15s ease, box-shadow 0.3s ease",
+            outline:        "none",
           }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.04)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
+          onMouseDown={e =>  { (e.currentTarget as HTMLElement).style.transform = "scale(0.96)"; }}
+          onMouseUp={e =>    { (e.currentTarget as HTMLElement).style.transform = "scale(1.04)"; }}
         >
           {/* Mic icon */}
           {!isThinking && !isSpeaking && (
             <svg
-              width="28"
-              height="28"
-              viewBox="0 0 24 24"
+              width="26" height="26" viewBox="0 0 24 24"
               fill="none"
-              stroke={isListening ? accent : "#ffffff80"}
-              strokeWidth="1.8"
+              stroke={isListening ? accent : "rgba(255,255,255,0.55)"}
+              strokeWidth="1.7"
               strokeLinecap="round"
               strokeLinejoin="round"
             >
               <rect x="9" y="2" width="6" height="12" rx="3" />
               <path d="M5 10a7 7 0 0 0 14 0" />
               <line x1="12" y1="19" x2="12" y2="22" />
-              <line x1="8" y1="22" x2="16" y2="22" />
+              <line x1="8"  y1="22" x2="16" y2="22" />
             </svg>
           )}
 
           {/* Thinking spinner */}
           {isThinking && (
             <svg
-              className="animate-spin"
-              width="28"
-              height="28"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke={accent}
-              strokeWidth="1.8"
-              strokeLinecap="round"
+              width="26" height="26" viewBox="0 0 24 24"
+              fill="none" stroke={accent} strokeWidth="1.7" strokeLinecap="round"
+              style={{ animation: "spin 1s linear infinite" }}
             >
               <path d="M12 2a10 10 0 0 1 0 20A10 10 0 0 1 12 2" strokeDasharray="30 60" />
             </svg>
@@ -144,16 +187,18 @@ export function VoiceOrb({ voiceState, agentStatus, volume, onClick, accent }: V
 
           {/* Speaking wave bars */}
           {isSpeaking && (
-            <div className="flex items-end gap-[3px] h-6">
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 24 }}>
               {[1, 2, 3, 4, 3].map((h, i) => (
                 <span
                   key={i}
-                  className="w-[3px] rounded-full"
                   style={{
-                    height: `${h * 5}px`,
-                    background: accent,
-                    animation: `speakBar 0.8s ease-in-out infinite`,
-                    animationDelay: `${i * 100}ms`,
+                    width:            3,
+                    height:           h * 5,
+                    borderRadius:     2,
+                    background:       accent,
+                    animation:        "ds-speak-bar 0.8s ease-in-out infinite",
+                    animationDelay:   `${i * 100}ms`,
+                    display:          "block",
                   }}
                 />
               ))}
@@ -162,18 +207,30 @@ export function VoiceOrb({ voiceState, agentStatus, volume, onClick, accent }: V
         </button>
       </div>
 
-      {/* Label */}
-      <span
-        className="text-xs font-mono tracking-widest uppercase transition-all duration-300"
-        style={{ color: isListening || isSpeaking ? accent : "#ffffff44" }}
-      >
+      {/* ── Status label ─────────────────────────────────────────────────── */}
+      <span style={{
+        fontFamily:    theme.fonts.mono,
+        fontSize:      theme.text.xxs.fontSize,
+        letterSpacing: "0.18em",
+        textTransform: "uppercase",
+        color:         (isListening || isSpeaking) ? accent : "rgba(255,255,255,0.28)",
+        transition:    theme.transition.base,
+      }}>
         {label}
       </span>
 
       <style>{`
-        @keyframes speakBar {
-          0%, 100% { transform: scaleY(0.4); }
-          50% { transform: scaleY(1); }
+        @keyframes ds-speak-bar {
+          0%, 100% { transform: scaleY(0.35); }
+          50%       { transform: scaleY(1); }
+        }
+        @keyframes ds-orb-ring {
+          0%, 100% { transform: scale(1);    opacity: 0.6; }
+          50%       { transform: scale(1.08); opacity: 0.2; }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
         }
       `}</style>
     </div>

@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import type { Slide } from "../slides/slideData";
 import { uploadPresentation } from "../slides/slideData";
+import { theme } from "../theme";
+import { GlobalStyles } from "../theme.styles";
 
 interface UploadScreenProps {
   onLoaded: (slides: Slide[], sessionId: string) => void;
@@ -8,237 +10,326 @@ interface UploadScreenProps {
 
 type UploadState = "idle" | "dragging" | "uploading" | "error";
 
+// ── State-dependent visual config ─────────────────────────────────────────────
+const STATE_CONFIG = {
+  idle: {
+    borderColor: theme.colors.white["10"],
+    background:  theme.colors.white["03"],
+    boxShadow:   "none",
+  },
+  dragging: {
+    borderColor: theme.colors.cyan["400"],
+    background:  theme.colors.cyan.faint,
+    boxShadow:   `0 0 48px ${theme.colors.cyan.soft}`,
+  },
+  uploading: {
+    borderColor: "rgba(147,197,253,0.35)",
+    background:  "rgba(147,197,253,0.04)",
+    boxShadow:   "0 0 40px rgba(147,197,253,0.10)",
+  },
+  error: {
+    borderColor: theme.colors.red.border,
+    background:  theme.colors.red.soft,
+    boxShadow:   "none",
+  },
+};
+
 export function UploadScreen({ onLoaded }: UploadScreenProps) {
   const [uploadState, setUploadState] = useState<UploadState>("idle");
-  const [errorMsg, setErrorMsg] = useState("");
-  const [fileName, setFileName] = useState("");
-  const [progress, setProgress] = useState(0);
+  const [errorMsg,    setErrorMsg]    = useState("");
+  const [fileName,    setFileName]    = useState("");
+  const [progress,    setProgress]    = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = useCallback(
-    async (file: File) => {
-      if (!file.name.endsWith(".pptx")) {
-        setErrorMsg("Only .pptx files are supported.");
-        setUploadState("error");
-        return;
-      }
-      setFileName(file.name);
-      setUploadState("uploading");
-      setProgress(0);
+  // ── File handler — logic unchanged ────────────────────────────────────────
+  const handleFile = useCallback(async (file: File) => {
+    if (!file.name.endsWith(".pptx")) {
+      setErrorMsg("Only .pptx files are supported.");
+      setUploadState("error");
+      return;
+    }
+    setFileName(file.name);
+    setUploadState("uploading");
+    setProgress(0);
 
-      const interval = setInterval(
-        () => setProgress((p) => Math.min(p + 8, 85)),
-        200,
-      );
+    const interval = setInterval(() => setProgress(p => Math.min(p + 8, 85)), 200);
 
-      try {
-        console.log("[UploadScreen] Starting upload...");
-        const result = await uploadPresentation(file);
-        clearInterval(interval);
-        setProgress(100);
+    try {
+      console.log("[UploadScreen] Starting upload...");
+      const result = await uploadPresentation(file);
+      clearInterval(interval);
+      setProgress(100);
 
-        console.log("[UploadScreen] Upload success:", {
-          session_id: result.session_id,
-          slideCount: result.slides.length,
-        });
+      console.log("[UploadScreen] Upload success:", {
+        session_id: result.session_id,
+        slideCount: result.slides.length,
+      });
 
-        // Small delay to show 100% then transition
-        setTimeout(() => {
-          console.log(
-            "[UploadScreen] Calling onLoaded with session_id:",
-            result.session_id,
-          );
-          onLoaded(result.slides, result.session_id);
-        }, 400);
-      } catch (err) {
-        clearInterval(interval);
-        const msg = err instanceof Error ? err.message : "Upload failed.";
-        console.error("[UploadScreen] Upload error:", msg);
-        setErrorMsg(msg);
-        setUploadState("error");
-      }
-    },
-    [onLoaded],
-  );
+      setTimeout(() => {
+        console.log("[UploadScreen] Calling onLoaded with session_id:", result.session_id);
+        onLoaded(result.slides, result.session_id);
+      }, 400);
+    } catch (err) {
+      clearInterval(interval);
+      const msg = err instanceof Error ? err.message : "Upload failed.";
+      console.error("[UploadScreen] Upload error:", msg);
+      setErrorMsg(msg);
+      setUploadState("error");
+    }
+  }, [onLoaded]);
 
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setUploadState("idle");
-      const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
-    },
-    [handleFile],
-  );
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setUploadState("idle");
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  }, [handleFile]);
 
-  const onInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) handleFile(file);
-    },
-    [handleFile],
-  );
+  const onInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+  }, [handleFile]);
 
   const isClickable = uploadState === "idle" || uploadState === "error";
+  const visual      = STATE_CONFIG[uploadState];
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center px-6"
-      style={{
-        background:
-          "radial-gradient(ellipse 80% 60% at 50% -10%, #1a1f35 0%, #080a10 100%)",
-        fontFamily: "'DM Sans', sans-serif",
-      }}
-    >
-      <div className="text-center mb-12">
-        <p
-          className="text-xs font-mono tracking-[0.3em] uppercase mb-4"
-          style={{ color: "#6EE7B788" }}
-        >
-          AI Voice Presenter
-        </p>
-        <h1
-          className="text-5xl font-bold text-white mb-4"
-          style={{ fontFamily: "'DM Serif Display', serif" }}
-        >
-          Upload your deck
-        </h1>
-        <p className="text-gray-500 text-base">
-          Drop a .pptx and let the AI present it for you
-        </p>
-      </div>
+    <>
+      <GlobalStyles />
 
       <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setUploadState("dragging");
-        }}
-        onDragLeave={() => setUploadState("idle")}
-        onDrop={onDrop}
-        onClick={() => isClickable && inputRef.current?.click()}
-        className="relative w-full max-w-lg rounded-2xl flex flex-col items-center justify-center transition-all duration-300"
         style={{
-          minHeight: "280px",
-          cursor: isClickable ? "pointer" : "default",
-          border: `1.5px dashed ${uploadState === "dragging" ? "#6EE7B7" : uploadState === "error" ? "#F87171" : uploadState === "uploading" ? "#93C5FD" : "#ffffff18"}`,
-          background:
-            uploadState === "dragging"
-              ? "#6EE7B714"
-              : uploadState === "uploading"
-                ? "#93C5FD08"
-                : "#ffffff04",
-          boxShadow:
-            uploadState === "dragging"
-              ? "0 0 40px #6EE7B720"
-              : uploadState === "uploading"
-                ? "0 0 40px #93C5FD18"
-                : "none",
+          minHeight:      "100vh",
+          display:        "flex",
+          flexDirection:  "column",
+          alignItems:     "center",
+          justifyContent: "center",
+          padding:        "24px",
+          background:     theme.colors.bg.root,
+          fontFamily:     theme.fonts.display,
+          position:       "relative",
+          isolation:      "isolate",
         }}
       >
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".pptx"
-          className="hidden"
-          onChange={onInputChange}
-        />
+        {/* Atmospheric layers */}
+        <div className="ds-nebula ds-nebula-1" />
+        <div className="ds-nebula ds-nebula-2" />
+        <div className="ds-nebula ds-nebula-3" />
+        <div className="ds-stars-layer" />
+        <div className="ds-grain-layer" />
 
-        {(uploadState === "idle" || uploadState === "dragging") && (
-          <div className="flex flex-col items-center gap-4 p-8 text-center">
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-transform duration-200"
-              style={{
-                background:
-                  uploadState === "dragging" ? "#6EE7B722" : "#ffffff08",
-                border: `1px solid ${uploadState === "dragging" ? "#6EE7B740" : "#ffffff14"}`,
-                transform:
-                  uploadState === "dragging" ? "scale(1.1)" : "scale(1)",
-              }}
-            >
-              {uploadState === "dragging" ? "📂" : "📎"}
-            </div>
-            <div>
-              <p className="text-white font-medium mb-1">
-                {uploadState === "dragging"
-                  ? "Release to upload"
-                  : "Drag & drop your .pptx"}
-              </p>
-              <p className="text-gray-600 text-sm">or click to browse</p>
-            </div>
-            <div
-              className="px-4 py-1.5 rounded-full text-xs font-mono tracking-wide"
-              style={{
-                background: "#ffffff08",
-                color: "#ffffff40",
-                border: "1px solid #ffffff10",
-              }}
-            >
-              .pptx only · max 50 MB
-            </div>
-          </div>
-        )}
+        {/* Content */}
+        <div style={{ position: "relative", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
 
-        {uploadState === "uploading" && (
-          <div className="flex flex-col items-center gap-6 p-8 w-full">
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
-              style={{ background: "#93C5FD14", border: "1px solid #93C5FD30" }}
-            >
-              📊
-            </div>
-            <div className="w-full text-center">
-              <p className="text-white font-medium mb-1 truncate px-4">
-                {fileName}
-              </p>
-              <p className="text-gray-500 text-sm mb-4">Parsing slides…</p>
-              <div
-                className="w-full h-1 rounded-full mx-auto"
-                style={{ background: "#ffffff0a", maxWidth: "240px" }}
-              >
-                <div
-                  className="h-full rounded-full transition-all duration-300"
-                  style={{
-                    width: `${progress}%`,
-                    background: "linear-gradient(90deg, #93C5FD, #6EE7B7)",
-                    boxShadow: "0 0 8px #93C5FD80",
-                  }}
-                />
+          {/* ── Header copy ───────────────────────────────────────────────── */}
+          <div style={{ textAlign: "center", marginBottom: 48 }}>
+            {/* Eyebrow */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 20 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: theme.radius.sm,
+                background: theme.colors.cyan.soft,
+                border: `1px solid ${theme.colors.cyan.border}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: theme.shadows.cyanGlow,
+              }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+                  <polygon points="5,3 19,12 5,21" fill={theme.colors.cyan["400"]} opacity="0.95" />
+                </svg>
               </div>
-              <p
-                className="text-xs font-mono mt-2"
-                style={{ color: "#93C5FD88" }}
-              >
-                {progress}%
-              </p>
+              <span style={{
+                fontFamily:    theme.fonts.mono,
+                fontSize:      theme.text.xxs.fontSize,
+                letterSpacing: "0.24em",
+                textTransform: "uppercase",
+                color:         `${theme.colors.emerald["400"]}90`,
+              }}>
+                AI Voice Presenter
+              </span>
             </div>
-          </div>
-        )}
 
-        {uploadState === "error" && (
-          <div className="flex flex-col items-center gap-4 p-8 text-center">
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
-              style={{ background: "#F8717114", border: "1px solid #F8717130" }}
-            >
-              ⚠️
-            </div>
-            <div>
-              <p className="text-white font-medium mb-1">Upload failed</p>
-              <p className="text-sm mb-4" style={{ color: "#F87171" }}>
-                {errorMsg}
-              </p>
-              <p className="text-gray-600 text-xs">Click to try again</p>
-            </div>
+            <h1 style={{
+              fontFamily:    theme.fonts.display,
+              fontWeight:    700,
+              fontSize:      clamp(36, 52),
+              lineHeight:    1.15,
+              letterSpacing: "-0.02em",
+              color:         theme.colors.white["90"],
+              marginBottom:  14,
+            }}>
+              Upload your deck
+            </h1>
+            <p style={{
+              fontFamily: theme.fonts.display,
+              fontSize:   theme.text.md.fontSize,
+              color:      theme.colors.white["30"],
+              lineHeight: 1.5,
+            }}>
+              Drop a .pptx and let the AI present it for you
+            </p>
           </div>
-        )}
+
+          {/* ── Drop zone ─────────────────────────────────────────────────── */}
+          <div
+            onDragOver={e => { e.preventDefault(); setUploadState("dragging"); }}
+            onDragLeave={() => setUploadState("idle")}
+            onDrop={onDrop}
+            onClick={() => isClickable && inputRef.current?.click()}
+            style={{
+              position:     "relative",
+              width:        "100%",
+              maxWidth:     480,
+              minHeight:    280,
+              borderRadius: theme.radius.xxl,
+              display:      "flex",
+              flexDirection: "column",
+              alignItems:   "center",
+              justifyContent: "center",
+              cursor:       isClickable ? "pointer" : "default",
+              border:       `1.5px dashed ${visual.borderColor}`,
+              background:   visual.background,
+              boxShadow:    visual.boxShadow,
+              backdropFilter: "blur(20px)",
+              transition:   theme.transition.slow,
+            }}
+          >
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".pptx"
+              style={{ display: "none" }}
+              onChange={onInputChange}
+            />
+
+            {/* ── IDLE / DRAGGING ────────────────────────────────────────── */}
+            {(uploadState === "idle" || uploadState === "dragging") && (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "32px 24px", textAlign: "center" }}>
+                {/* Icon */}
+                <div style={{
+                  width:          64,
+                  height:         64,
+                  borderRadius:   theme.radius.lg,
+                  display:        "flex",
+                  alignItems:     "center",
+                  justifyContent: "center",
+                  fontSize:       28,
+                  background:     uploadState === "dragging" ? theme.colors.cyan.soft : theme.colors.white["05"],
+                  border:         `1px solid ${uploadState === "dragging" ? theme.colors.cyan.borderSoft : theme.colors.white["07"]}`,
+                  transform:      uploadState === "dragging" ? "scale(1.1)" : "scale(1)",
+                  transition:     theme.transition.base,
+                  boxShadow:      uploadState === "dragging" ? theme.shadows.cyanGlow : "none",
+                }}>
+                  {uploadState === "dragging" ? "📂" : "📎"}
+                </div>
+
+                <div>
+                  <p style={{ fontFamily: theme.fonts.display, fontWeight: 600, fontSize: theme.text.md.fontSize, color: theme.colors.white["90"], marginBottom: 6 }}>
+                    {uploadState === "dragging" ? "Release to upload" : "Drag & drop your .pptx"}
+                  </p>
+                  <p style={{ fontFamily: theme.fonts.display, fontSize: theme.text.sm.fontSize, color: theme.colors.white["30"] }}>
+                    or click to browse
+                  </p>
+                </div>
+
+                {/* Pill tag */}
+                <div style={{
+                  padding:       "5px 14px",
+                  borderRadius:  theme.radius.full,
+                  background:    theme.colors.white["03"],
+                  border:        `1px solid ${theme.colors.white["07"]}`,
+                  fontFamily:    theme.fonts.mono,
+                  fontSize:      theme.text.xxs.fontSize,
+                  letterSpacing: "0.1em",
+                  color:         theme.colors.white["30"],
+                }}>
+                  .pptx only · max 50 MB
+                </div>
+              </div>
+            )}
+
+            {/* ── UPLOADING ─────────────────────────────────────────────── */}
+            {uploadState === "uploading" && (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20, padding: "32px 24px", width: "100%" }}>
+                <div style={{
+                  width: 64, height: 64, borderRadius: theme.radius.lg,
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28,
+                  background: "rgba(147,197,253,0.10)",
+                  border: "1px solid rgba(147,197,253,0.25)",
+                }}>
+                  📊
+                </div>
+
+                <div style={{ width: "100%", textAlign: "center" }}>
+                  <p style={{ fontFamily: theme.fonts.display, fontWeight: 600, fontSize: theme.text.base.fontSize, color: theme.colors.white["90"], marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "0 16px" }}>
+                    {fileName}
+                  </p>
+                  <p style={{ fontFamily: theme.fonts.mono, fontSize: theme.text.xxs.fontSize, letterSpacing: "0.1em", color: theme.colors.white["30"], marginBottom: 20 }}>
+                    Parsing slides…
+                  </p>
+
+                  {/* Progress track */}
+                  <div style={{ maxWidth: 240, margin: "0 auto" }}>
+                    <div style={{ width: "100%", height: 3, borderRadius: theme.radius.full, background: theme.colors.white["05"], overflow: "hidden" }}>
+                      <div style={{
+                        height:     "100%",
+                        width:      `${progress}%`,
+                        borderRadius: theme.radius.full,
+                        background: `linear-gradient(90deg, ${theme.colors.cyan["400"]}, ${theme.colors.emerald["400"]})`,
+                        boxShadow:  `0 0 10px ${theme.colors.cyan.glow}`,
+                        transition: "width 0.3s ease",
+                      }} />
+                    </div>
+                    <p style={{ fontFamily: theme.fonts.mono, fontSize: theme.text.xxs.fontSize, letterSpacing: "0.1em", color: `${theme.colors.cyan["400"]}70`, marginTop: 8 }}>
+                      {progress}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── ERROR ─────────────────────────────────────────────────── */}
+            {uploadState === "error" && (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "32px 24px", textAlign: "center" }}>
+                <div style={{
+                  width: 64, height: 64, borderRadius: theme.radius.lg,
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28,
+                  background: theme.colors.red.soft,
+                  border: `1px solid ${theme.colors.red.border}`,
+                }}>
+                  ⚠️
+                </div>
+                <div>
+                  <p style={{ fontFamily: theme.fonts.display, fontWeight: 600, fontSize: theme.text.base.fontSize, color: theme.colors.white["90"], marginBottom: 6 }}>
+                    Upload failed
+                  </p>
+                  <p style={{ fontFamily: theme.fonts.display, fontSize: theme.text.sm.fontSize, color: theme.colors.red["400"], marginBottom: 10 }}>
+                    {errorMsg}
+                  </p>
+                  <p style={{ fontFamily: theme.fonts.mono, fontSize: theme.text.xxs.fontSize, letterSpacing: "0.08em", color: theme.colors.white["30"] }}>
+                    Click to try again
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Footer note ───────────────────────────────────────────────── */}
+          <p style={{
+            marginTop:     32,
+            fontFamily:    theme.fonts.mono,
+            fontSize:      theme.text.xxs.fontSize,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color:         theme.colors.white["18"],
+          }}>
+            Powered by GPT-4o · Chrome recommended for voice
+          </p>
+        </div>
       </div>
-
-      <p
-        className="mt-8 text-xs font-mono tracking-widest uppercase"
-        style={{ color: "#ffffff18" }}
-      >
-        Powered by GPT-4o · Chrome recommended for voice
-      </p>
-    </div>
+    </>
   );
+}
+
+// Small utility for responsive font size without CSS clamp support in inline styles
+function clamp(min: number, preferred: number): number {
+  return typeof window !== "undefined" && window.innerWidth < 640 ? min : preferred;
 }

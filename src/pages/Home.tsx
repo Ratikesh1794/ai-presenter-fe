@@ -6,45 +6,77 @@ import { VoiceOrb } from "../components/VoiceOrb";
 import { ConnectionBadge } from "../components/ConnectionBadge";
 import { TranscriptBubble } from "../components/TranscriptBubble";
 import { UploadScreen } from "../components/Uploadscreen";
+import { theme } from "../theme";
+import { GlobalStyles } from "../theme.styles";
 import type { Slide } from "../slides/slideData";
 
+// ─── Helper: build a mono text style object ───────────────────────────────────
+const monoStyle = (
+  size: keyof typeof theme.text,
+  color: string,
+  extra?: React.CSSProperties
+): React.CSSProperties => ({
+  fontFamily:    theme.fonts.mono,
+  fontSize:      theme.text[size].fontSize,
+  letterSpacing: theme.text[size].letterSpacing,
+  color,
+  ...extra,
+});
+
+// ─── Logo mark ────────────────────────────────────────────────────────────────
+const LogoMark = () => (
+  <div
+    style={{
+      width: 30, height: 30,
+      borderRadius: theme.radius.sm,
+      background: `linear-gradient(135deg, ${theme.colors.cyan.soft} 0%, ${theme.colors.cyan.faint} 100%)`,
+      border: `1px solid ${theme.colors.cyan.border}`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      boxShadow: theme.shadows.cyanGlow,
+      flexShrink: 0,
+    }}
+  >
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+      <polygon points="5,3 19,12 5,21" fill={theme.colors.cyan["400"]} opacity="0.95" />
+    </svg>
+  </div>
+);
+
+// ─── Nav chevrons ──────────────────────────────────────────────────────────────
+const ChevronLeft  = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
+const ChevronRight = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function Home() {
   const {
-    slides,
-    currentSlide,
-    loadSlides,
-    goToSlide,
-    nextSlide,
-    prevSlide,
-    phase,
-    startPresentation,
-    agentStatus,
-    lastAgentText,
-    transcript,
-    voiceState,
-    volume,
-    isSupported,
-    startListening,
-    stopListening,
-    interrupt,
-    connectionStatus,
-    reconnect,
+    slides, currentSlide, loadSlides, goToSlide,
+    nextSlide, prevSlide, phase, startPresentation,
+    agentStatus, lastAgentText, transcript,
+    voiceState, volume, isSupported,
+    startListening, stopListening, interrupt,
+    connectionStatus, reconnect,
   } = usePresentation();
 
-  const hasSlides = slides.length > 0;
-  const slide = slides[currentSlide] as Slide | undefined;
-  const accent = slide?.accent ?? "#6EE7B7";
+  const hasSlides   = slides.length > 0;
+  const slide       = slides[currentSlide] as Slide | undefined;
+  const slideAccent = slide?.accent ?? theme.colors.cyan["400"];
 
   const isPresenting = phase === "presenting" || phase === "answering_doubt";
-  const isComplete = phase === "complete";
-  const isAgentBusy = agentStatus === "thinking" || agentStatus === "speaking";
-  const isListening = voiceState === "listening";
+  const isComplete   = phase === "complete";
+  const isAgentBusy  = agentStatus === "thinking" || agentStatus === "speaking";
+  const isListening  = voiceState === "listening";
+  const isConnected  = connectionStatus === "connected";
 
   const handleOrbClick = () => {
-    if (voiceState === "speaking") {
-      interrupt();
-      return;
-    }
+    if (voiceState === "speaking") { interrupt(); return; }
     if (isListening) {
       stopListening();
     } else {
@@ -64,267 +96,348 @@ export default function Home() {
   }
 
   return (
-    <div
-      className="min-h-screen flex flex-col"
-      style={{
-        background:
-          "radial-gradient(ellipse 80% 60% at 50% -10%, #1a1f35 0%, #080a10 100%)",
-        fontFamily: "'DM Sans', sans-serif",
-      }}
-    >
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between px-8 pt-6 pb-2">
-        <div className="flex items-center gap-3">
-          <span
-            className="text-xs font-mono tracking-[0.25em] uppercase"
-            style={{ color: `${accent}88` }}
-          >
-            AI Presenter
-          </span>
-          {/* Phase badge */}
-          {isPresenting && (
-            <span
-              className="text-xs font-mono px-2 py-0.5 rounded-full flex items-center gap-1.5"
-              style={{
-                background: `${accent}18`,
-                border: `1px solid ${accent}35`,
-                color: accent,
-              }}
-            >
-              <span
-                className="w-1.5 h-1.5 rounded-full animate-pulse"
-                style={{ background: accent }}
-              />
-              {phase === "answering_doubt" ? "Answering doubt" : "Presenting"}
-            </span>
-          )}
-          {isComplete && (
-            <span
-              className="text-xs font-mono px-2 py-0.5 rounded-full"
-              style={{
-                background: "#6EE7B718",
-                border: "1px solid #6EE7B735",
-                color: "#6EE7B7",
-              }}
-            >
-              ✓ Complete
-            </span>
-          )}
-          <button
-            onClick={() => loadSlides([])}
-            className="text-xs font-mono px-2 py-1 rounded-lg hover:opacity-80 transition-opacity"
-            style={{
-              color: "#ffffff28",
-              border: "1px solid #ffffff10",
-              background: "transparent",
-            }}
-          >
-            ↑ Replace deck
-          </button>
-        </div>
-        <ConnectionBadge status={connectionStatus} onReconnect={reconnect} />
-      </header>
+    <>
+      <GlobalStyles />
 
-      {/* ── Main ───────────────────────────────────────────────────────────── */}
-      <main className="flex flex-1 flex-col lg:flex-row items-center justify-center gap-8 px-6 py-4">
-        {/* Slide */}
-        <div
-          className="relative w-full max-w-2xl"
-          style={{ aspectRatio: "16/9" }}
-        >
-          {slide && (
-            <SlideCard
-              key={slide.id}
-              slide={slide}
-              isActive
-              index={currentSlide}
-              total={slides.length}
-            />
-          )}
-          <button
-            onClick={prevSlide}
-            disabled={currentSlide === 0}
-            className="absolute -left-13 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center disabled:opacity-20 hover:opacity-80 transition-opacity"
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-            }}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2"
-            >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-          <button
-            onClick={nextSlide}
-            disabled={currentSlide === slides.length - 1}
-            className="absolute -right-13 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center disabled:opacity-20 hover:opacity-80 transition-opacity"
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-            }}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2"
-            >
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
-        </div>
+      <div
+        className={theme.cx.root}
+        style={{
+          minHeight:      "100vh",
+          display:        "flex",
+          flexDirection:  "column",
+          background:     theme.colors.bg.root,
+          fontFamily:     theme.fonts.display,
+        }}
+      >
+        {/* ── Atmospheric background layers ──────────────────────────────── */}
+        <div className="ds-nebula ds-nebula-1" />
+        <div className="ds-nebula ds-nebula-2" />
+        <div className="ds-nebula ds-nebula-3" />
+        <div className={theme.cx.starsLayer} />
+        <div className={theme.cx.grainLayer} />
 
-        {/* Right panel */}
-        <div className="flex flex-col items-center gap-5 w-full max-w-xs">
-          {/* ── Not started → Start button ─────────────────────────────────── */}
-          {phase === "idle" && (
-            <button
-              onClick={startPresentation}
-              disabled={connectionStatus !== "connected"}
-              className="w-full py-4 rounded-2xl font-medium text-sm tracking-wide transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{
-                background: `linear-gradient(135deg, ${accent}30, ${accent}15)`,
-                border: `1.5px solid ${accent}50`,
-                color: accent,
-                boxShadow:
-                  connectionStatus === "connected"
-                    ? `0 0 28px ${accent}22`
-                    : "none",
-              }}
-            >
-              <span className="flex items-center justify-center gap-2">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <polygon points="5,3 19,12 5,21" />
-                </svg>
-                Start Presentation
+        {/* ── Content above layers ───────────────────────────────────────── */}
+        <div style={{ position: "relative", zIndex: 10, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+
+          {/* ════════════════════════════════════════════════════════════════
+              HEADER
+          ════════════════════════════════════════════════════════════════ */}
+          <header style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "18px 32px 16px",
+            borderBottom: `1px solid ${theme.colors.white["05"]}`,
+          }}>
+
+            {/* Left — logo + wordmark + status badges */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <LogoMark />
+              <span style={{
+                fontFamily: theme.fonts.display, fontWeight: 600,
+                fontSize: 14, letterSpacing: "0.04em",
+                color: theme.colors.white["90"],
+              }}>
+                AI Presenter
               </span>
-            </button>
-          )}
 
-          {/* ── Complete → restart option ──────────────────────────────────── */}
-          {isComplete && (
-            <button
-              onClick={startPresentation}
-              className="w-full py-3 rounded-2xl font-medium text-sm tracking-wide transition-all duration-300"
-              style={{
-                background: "rgba(110,231,183,0.1)",
-                border: "1.5px solid rgba(110,231,183,0.3)",
-                color: "#6EE7B7",
-              }}
-            >
-              ↺ Restart Presentation
-            </button>
-          )}
+              <div style={{ width: 1, height: 18, background: theme.colors.white["10"] }} />
 
-          {/* ── Agent status pill ──────────────────────────────────────────── */}
-          {(isPresenting || isComplete) && (
-            <div
-              className="w-full px-4 py-2.5 rounded-xl text-xs font-mono flex items-center gap-2"
-              style={{
-                background: isAgentBusy
-                  ? `${accent}12`
-                  : "rgba(255,255,255,0.03)",
-                border: `1px solid ${isAgentBusy ? accent + "30" : "rgba(255,255,255,0.07)"}`,
-                color: isAgentBusy ? accent : "rgba(255,255,255,0.28)",
-              }}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full shrink-0 ${isAgentBusy ? "animate-pulse" : ""}`}
+              {/* Presenting badge */}
+              {isPresenting && (
+                <span
+                  className={theme.cx.fadeUp1}
+                  style={{
+                    ...monoStyle("xxs", theme.colors.cyan["400"]),
+                    textTransform: "uppercase",
+                    padding: "3px 11px",
+                    borderRadius: theme.radius.full,
+                    background: theme.colors.cyan.soft,
+                    border: `1px solid ${theme.colors.cyan.borderSoft}`,
+                    display: "flex", alignItems: "center", gap: 6,
+                  }}
+                >
+                  <span className={theme.cx.liveDot} />
+                  {phase === "answering_doubt" ? "Q&A" : "Live"}
+                </span>
+              )}
+
+              {/* Complete badge */}
+              {isComplete && (
+                <span style={{
+                  ...monoStyle("xxs", theme.colors.emerald["400"]),
+                  textTransform: "uppercase",
+                  padding: "3px 11px",
+                  borderRadius: theme.radius.full,
+                  background: theme.colors.emerald.soft,
+                  border: `1px solid ${theme.colors.emerald.border}`,
+                }}>
+                  ✓ Complete
+                </span>
+              )}
+            </div>
+
+            {/* Right — counter + replace + connection */}
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <span style={monoStyle("sm", theme.colors.white["30"])}>
+                {currentSlide + 1} / {slides.length}
+              </span>
+
+              <button
+                onClick={() => loadSlides([])}
                 style={{
-                  background: isAgentBusy ? accent : "rgba(255,255,255,0.18)",
+                  ...monoStyle("xxs", theme.colors.white["30"]),
+                  textTransform: "uppercase",
+                  padding: "5px 13px",
+                  borderRadius: theme.radius.sm,
+                  border: `1px solid ${theme.colors.white["07"]}`,
+                  background: "transparent",
+                  cursor: "pointer",
+                  transition: theme.transition.base,
                 }}
-              />
-              {agentStatus === "thinking" && "Agent is thinking…"}
-              {agentStatus === "speaking" && "Agent is speaking…"}
-              {agentStatus === "idle" &&
-                phase === "complete" &&
-                "Presentation complete"}
-              {agentStatus === "idle" &&
-                phase !== "complete" &&
-                "Agent is idle"}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.color = theme.colors.white["70"];
+                  (e.currentTarget as HTMLElement).style.borderColor = theme.colors.white["18"];
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.color = theme.colors.white["30"];
+                  (e.currentTarget as HTMLElement).style.borderColor = theme.colors.white["07"];
+                }}
+              >
+                ↑ Replace
+              </button>
+
+              <ConnectionBadge status={connectionStatus} onReconnect={reconnect} />
             </div>
-          )}
+          </header>
 
-          {/* ── Interrupt hint (while agent is speaking) ───────────────────── */}
-          {isPresenting && agentStatus === "speaking" && (
-            <p
-              className="text-xs font-mono text-center"
-              style={{ color: `${accent}70` }}
-            >
-              💬 Ask a question anytime to pause & clarify
-            </p>
-          )}
+          {/* ════════════════════════════════════════════════════════════════
+              MAIN
+          ════════════════════════════════════════════════════════════════ */}
+          <main style={{
+            flex: 1,
+            display: "flex", flexWrap: "wrap",
+            alignItems: "center", justifyContent: "center",
+            gap: 28, padding: "24px 40px",
+          }}>
 
-          {/* ── Voice orb ─────────────────────────────────────────────────── */}
-          {isSupported ? (
-            <VoiceOrb
-              voiceState={voiceState}
-              agentStatus={agentStatus}
-              volume={volume}
-              onClick={handleOrbClick}
-              accent={accent}
-            />
-          ) : (
+            {/* ── Slide stage ─────────────────────────────────────────────── */}
             <div
-              className="px-4 py-3 rounded-xl text-sm text-center"
+              className={theme.cx.fadeUp1}
+              style={{ position: "relative", width: "100%", maxWidth: 820, aspectRatio: "16/9" }}
+            >
+              {/* Ambient glow halo behind slide */}
+              <div style={{
+                position: "absolute", inset: -14,
+                borderRadius: theme.radius.xxl,
+                background: `radial-gradient(ellipse at 50% 50%, ${slideAccent}09 0%, transparent 68%)`,
+                pointerEvents: "none", zIndex: 0,
+              }} />
+
+              {/* Slide card */}
+              <div style={{
+                position: "relative", zIndex: 1, height: "100%",
+                borderRadius: theme.radius.xl, overflow: "hidden",
+                boxShadow: `${theme.shadows.slideCard}, 0 0 50px ${slideAccent}0c`,
+              }}>
+                {slide && (
+                  <SlideCard key={slide.id} slide={slide} isActive index={currentSlide} total={slides.length} />
+                )}
+              </div>
+
+              {/* Prev */}
+              <button
+                className={theme.cx.slideNavBtn}
+                onClick={prevSlide}
+                disabled={currentSlide === 0}
+                style={{ position: "absolute", left: -54, top: "50%", transform: "translateY(-50%)" }}
+              >
+                <ChevronLeft />
+              </button>
+
+              {/* Next */}
+              <button
+                className={theme.cx.slideNavBtn}
+                onClick={nextSlide}
+                disabled={currentSlide === slides.length - 1}
+                style={{ position: "absolute", right: -54, top: "50%", transform: "translateY(-50%)" }}
+              >
+                <ChevronRight />
+              </button>
+            </div>
+
+            {/* ── Control panel ───────────────────────────────────────────── */}
+            <div
+              className={`${theme.cx.glassPanel} ${theme.cx.fadeUp2}`}
               style={{
-                background: "rgba(248,113,113,0.1)",
-                border: "1px solid rgba(248,113,113,0.2)",
-                color: "#F87171",
+                display: "flex", flexDirection: "column", alignItems: "center",
+                gap: 16, width: "100%", maxWidth: 268, padding: "22px 20px",
+                boxShadow: theme.shadows.panel,
               }}
             >
-              Voice not supported. Try Chrome.
+              {/* Panel header */}
+              <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={monoStyle("xxs", theme.colors.white["30"], { textTransform: "uppercase" })}>
+                  Session
+                </span>
+                {isPresenting && (
+                  <span className={theme.cx.sessionLive}>
+                    <span className={theme.cx.liveDot} />
+                    <span style={monoStyle("xxs", theme.colors.cyan["400"])}>ON AIR</span>
+                  </span>
+                )}
+              </div>
+
+              <div className={theme.cx.divider} />
+
+              {/* Start */}
+              {phase === "idle" && (
+                <button
+                  className={theme.cx.btnPrimary}
+                  onClick={startPresentation}
+                  disabled={!isConnected}
+                  style={{
+                    width: "100%", padding: "14px 0",
+                    borderRadius: theme.radius.xl,
+                    fontFamily: theme.fonts.display, fontWeight: 600,
+                    fontSize: theme.text.base.fontSize,
+                    letterSpacing: "0.06em",
+                    background: isConnected
+                      ? `linear-gradient(135deg, ${theme.colors.cyan.soft} 0%, ${theme.colors.cyan.faint} 100%)`
+                      : theme.colors.white["03"],
+                    border: `1px solid ${isConnected ? theme.colors.cyan.border : theme.colors.white["07"]}`,
+                    color: isConnected ? theme.colors.cyan["400"] : theme.colors.white["30"],
+                    boxShadow: isConnected ? theme.shadows.cyanGlow : "none",
+                  }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                      <polygon points="5,3 19,12 5,21" />
+                    </svg>
+                    Begin Session
+                  </span>
+                </button>
+              )}
+
+              {/* Restart */}
+              {isComplete && (
+                <button
+                  className={theme.cx.btnPrimary}
+                  onClick={startPresentation}
+                  style={{
+                    width: "100%", padding: "14px 0",
+                    borderRadius: theme.radius.xl,
+                    fontFamily: theme.fonts.display, fontWeight: 600,
+                    fontSize: theme.text.base.fontSize,
+                    letterSpacing: "0.06em",
+                    background: `linear-gradient(135deg, ${theme.colors.emerald.soft} 0%, rgba(110,231,183,0.03) 100%)`,
+                    border: `1px solid ${theme.colors.emerald.border}`,
+                    color: theme.colors.emerald["400"],
+                    cursor: "pointer",
+                  }}
+                >
+                  ↺ Restart Session
+                </button>
+              )}
+
+              {/* Agent status pill */}
+              {(isPresenting || isComplete) && (
+                <div style={{
+                  width: "100%", padding: "10px 14px",
+                  borderRadius: theme.radius.md,
+                  background: isAgentBusy ? theme.colors.cyan.soft : theme.colors.white["03"],
+                  border: `1px solid ${isAgentBusy ? theme.colors.cyan.borderSoft : theme.colors.white["07"]}`,
+                  display: "flex", alignItems: "center", gap: 9,
+                  transition: theme.transition.slow,
+                }}>
+                  <span
+                    className={isAgentBusy ? theme.cx.pulseDot : ""}
+                    style={{
+                      width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+                      background: isAgentBusy ? theme.colors.cyan["400"] : theme.colors.white["18"],
+                      boxShadow: isAgentBusy ? `0 0 6px ${theme.colors.cyan.glow}` : "none",
+                      transition: theme.transition.slow,
+                    }}
+                  />
+                  <span style={monoStyle("xs", isAgentBusy ? theme.colors.cyan["300"] : theme.colors.white["30"])}>
+                    {agentStatus === "thinking" && "Thinking…"}
+                    {agentStatus === "speaking" && "Speaking…"}
+                    {agentStatus === "idle" && phase === "complete" && "Session ended"}
+                    {agentStatus === "idle" && phase !== "complete" && "Standby"}
+                  </span>
+                </div>
+              )}
+
+              {/* Interrupt hint */}
+              {isPresenting && agentStatus === "speaking" && (
+                <p style={monoStyle("xxs", `${theme.colors.cyan["400"]}55`, { textAlign: "center", lineHeight: 1.6 })}>
+                  Interrupt anytime — just speak
+                </p>
+              )}
+
+              <div className={theme.cx.divider} />
+
+              {/* Voice orb */}
+              {isSupported ? (
+                <VoiceOrb
+                  voiceState={voiceState}
+                  agentStatus={agentStatus}
+                  volume={volume}
+                  onClick={handleOrbClick}
+                  accent={theme.colors.cyan["400"]}
+                />
+              ) : (
+                <div style={{
+                  width: "100%", padding: "12px 16px",
+                  borderRadius: theme.radius.md,
+                  background: theme.colors.red.soft,
+                  border: `1px solid ${theme.colors.red.border}`,
+                  color: theme.colors.red["400"],
+                  ...monoStyle("sm", theme.colors.red["400"]),
+                  textAlign: "center", lineHeight: 1.5,
+                }}>
+                  Voice unavailable — use Chrome
+                </div>
+              )}
+
+              {/* Keyboard hint */}
+              <p style={monoStyle("xxs", theme.colors.white["18"], { textAlign: "center", lineHeight: 1.8 })}>
+                {voiceState === "speaking"
+                  ? "Click orb to interrupt"
+                  : "Space · click orb · Esc to stop"}
+              </p>
+
+              <div className={theme.cx.divider} />
+
+              {/* Transcript */}
+              <TranscriptBubble
+                userText={transcript}
+                agentText={lastAgentText}
+                accent={theme.colors.cyan["400"]}
+              />
             </div>
-          )}
+          </main>
 
-          <p
-            className="text-xs font-mono text-center"
-            style={{ color: "rgba(255,255,255,0.18)" }}
-          >
-            {voiceState === "speaking"
-              ? "Click orb to interrupt"
-              : "Click orb · Space to speak · Esc to stop"}
-          </p>
+          {/* ════════════════════════════════════════════════════════════════
+              FOOTER
+          ════════════════════════════════════════════════════════════════ */}
+          <footer style={{
+            display: "flex", justifyContent: "center",
+            paddingBottom: 32, paddingTop: 12,
+            borderTop: `1px solid ${theme.colors.white["05"]}`,
+          }}>
+            <SlideDots slides={slides} current={currentSlide} onSelect={goToSlide} />
+          </footer>
 
-          <TranscriptBubble
-            userText={transcript}
-            agentText={lastAgentText}
-            accent={accent}
-          />
         </div>
-      </main>
-
-      {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      <footer className="flex justify-center pb-8 pt-2">
-        <SlideDots
-          slides={slides}
-          current={currentSlide}
-          onSelect={goToSlide}
-        />
-      </footer>
-    </div>
+      </div>
+    </>
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  useKeyboard — unchanged
+// ─────────────────────────────────────────────────────────────────────────────
 function useKeyboard({
-  onNext,
-  onPrev,
-  onToggleListen,
-  onStop,
+  onNext, onPrev, onToggleListen, onStop,
 }: {
   onNext: () => void;
   onPrev: () => void;
@@ -335,21 +448,10 @@ function useKeyboard({
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
       switch (e.key) {
-        case "ArrowRight":
-        case "PageDown":
-          onNext();
-          break;
-        case "ArrowLeft":
-        case "PageUp":
-          onPrev();
-          break;
-        case " ":
-          e.preventDefault();
-          onToggleListen();
-          break;
-        case "Escape":
-          onStop();
-          break;
+        case "ArrowRight": case "PageDown":  onNext();          break;
+        case "ArrowLeft":  case "PageUp":    onPrev();          break;
+        case " ":          e.preventDefault(); onToggleListen(); break;
+        case "Escape":                        onStop();          break;
       }
     };
     window.addEventListener("keydown", handler);

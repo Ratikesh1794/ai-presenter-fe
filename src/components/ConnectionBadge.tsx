@@ -1,4 +1,5 @@
 import type { ConnectionStatus } from "../hooks/useWebSocket";
+import { theme } from "../theme";
 
 interface ConnectionBadgeProps {
   status: ConnectionStatus;
@@ -9,10 +10,18 @@ const CONFIG: Record<
   ConnectionStatus,
   { label: string; color: string; pulse: boolean }
 > = {
-  connected: { label: "Connected", color: "#6EE7B7", pulse: false },
-  connecting: { label: "Connecting…", color: "#FCD34D", pulse: true },
-  disconnected: { label: "Disconnected", color: "#F87171", pulse: false },
-  error: { label: "Error", color: "#F87171", pulse: true },
+  connected: {
+    label: "Connected",
+    color: theme.colors.emerald["400"],
+    pulse: false,
+  },
+  connecting: { label: "Connecting", color: "#FCD34D", pulse: true },
+  disconnected: {
+    label: "Disconnected",
+    color: theme.colors.red["400"],
+    pulse: false,
+  },
+  error: { label: "Error", color: theme.colors.red["400"], pulse: true },
 };
 
 export function ConnectionBadge({ status, onReconnect }: ConnectionBadgeProps) {
@@ -22,24 +31,61 @@ export function ConnectionBadge({ status, onReconnect }: ConnectionBadgeProps) {
   return (
     <button
       onClick={isOffline ? onReconnect : undefined}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-200"
       style={{
-        background: `${color}12`,
-        border: `1px solid ${color}30`,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 7,
+        padding: "5px 12px",
+        borderRadius: theme.radius.full,
+        background: `${color}10`,
+        border: `1px solid ${color}28`,
         cursor: isOffline ? "pointer" : "default",
+        transition: theme.transition.base,
+        outline: "none",
+      }}
+      onMouseEnter={(e) => {
+        if (isOffline)
+          (e.currentTarget as HTMLElement).style.background = `${color}18`;
+      }}
+      onMouseLeave={(e) => {
+        if (isOffline)
+          (e.currentTarget as HTMLElement).style.background = `${color}10`;
       }}
     >
+      {/* Status dot */}
       <span
-        className={`w-1.5 h-1.5 rounded-full shrink-0 ${pulse ? "animate-pulse" : ""}`}
-        style={{ background: color }}
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: color,
+          flexShrink: 0,
+          boxShadow: `0 0 6px ${color}80`,
+          animation: pulse ? "ds-pulse-conn 1.8s ease-in-out infinite" : "none",
+        }}
       />
+
+      {/* Label */}
       <span
-        className="text-xs font-mono tracking-wide"
-        style={{ color: `${color}cc` }}
+        style={{
+          fontFamily: theme.fonts.mono,
+          fontSize: theme.text.xxs.fontSize,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: `${color}cc`,
+          whiteSpace: "nowrap",
+        }}
       >
         {label}
         {isOffline && " · Retry"}
       </span>
+
+      <style>{`
+        @keyframes ds-pulse-conn {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.35; }
+        }
+      `}</style>
     </button>
   );
 }
