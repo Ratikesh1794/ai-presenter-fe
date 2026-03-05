@@ -1,47 +1,64 @@
-# PresenterAI Frontend
+# PRESENTO Frontend
 
-The frontend is the live stage for PresenterAI. It handles deck upload, renders visual slides, captures audience speech, plays AI narration, and keeps the UI synchronized with backend presentation control events.
+Frontend client for **PRESENTO - an AI presentation agent**.
+
+This application provides the user-facing presentation experience: upload, live slide rendering, voice interaction, and synchronization with backend agent events.
 
 ## What This App Does
 
-- Accepts `.pptx` upload from the user.
-- Displays parsed slides with backend-generated images.
-- Opens a persistent WebSocket session with the backend.
-- Drives the presentation lifecycle from the browser:
-  - start presentation
-  - receive slide navigation instructions
-  - render narrated text in real time
-  - allow voice interruption for doubts
-- Uses Web Speech APIs for speech-to-text and text-to-speech.
+- Uploads `.pptx` files to the backend.
+- Displays parsed slide data with rendered image assets.
+- Maintains a persistent WebSocket session for live presentation control.
+- Supports voice-driven interruptions (questions/doubts) while presenting.
+- Plays AI narration using browser speech synthesis.
 
 ## Basic System Design
 
 ### UI and State Layers
 
-- `src/components/Uploadscreen.tsx`: file upload and upload state UI.
-- `src/hooks/usePresentation.ts`: central presentation state orchestration.
-- `src/hooks/useWebSocket.ts`: resilient WebSocket client with reconnect logic.
-- `src/hooks/useVoice.ts`: browser speech recognition and synthesis integration.
-- `src/slides/slideData.ts`: upload API call, data shaping, and slide enrichment.
+- `src/components/Uploadscreen.tsx`: upload flow and stateful UI.
+- `src/hooks/usePresentation.ts`: primary presentation state controller.
+- `src/hooks/useWebSocket.ts`: WebSocket lifecycle and reconnect logic.
+- `src/hooks/useVoice.ts`: speech recognition + speech synthesis wrapper.
+- `src/slides/slideData.ts`: API upload call, response shaping, and slide enrichment.
 
 ### Frontend Workflow
 
-1. User uploads a deck from the upload screen.
-2. Frontend sends file to backend `POST /upload`.
-3. Response returns `session_id` and slide metadata.
-4. Frontend opens WebSocket and sends `load_deck`.
-5. On user action, frontend sends `start_presentation`.
-6. Backend emits `change_slide`, `speak`, and `status`; frontend updates UI and voice playback.
-7. If user speaks a question, frontend sends `user_speech`; backend handles interruption and resumes flow.
+1. User uploads a deck in the upload screen.
+2. Frontend posts file to backend `POST /upload`.
+3. Backend returns `session_id` and parsed slides.
+4. Frontend connects to WebSocket and sends `load_deck`.
+5. User starts the session; frontend sends `start_presentation`.
+6. Backend pushes `change_slide`, `speak`, and `status`; UI updates in real time.
+7. User interruption triggers `user_speech`, backend handles doubt flow, then resumes presentation.
+
+## UI Screenshots
+
+Store screenshots in `frontend/public/screenshots/`. The README currently uses:
+
+- `upload-screen.png`
+- `presentation-screen.png`
+
+Gallery:
+
+![Upload Screen](./public/screenshots/upload-screen.png)
+![Presentation Screen](./public/screenshots/presentation-screen.png)
+If you capture a third screen for interruption mode, add:
+
+- `voice-interruption.png`
+
+## Demo Video
+
+<video src="./public/screenshots/Presento-Demo.mp4" controls width="100%"></video>
+
+[Watch Demo Video](./public/screenshots/Presento-Demo.mp4)
 
 ## Prerequisites
 
 - Node.js 18+ recommended
-- pnpm (or npm/yarn, though this project is configured with pnpm lockfile)
+- pnpm
 
 ## Environment Configuration
-
-Create `frontend/.env` from the example:
 
 ```bash
 cp .env.example .env
@@ -54,11 +71,9 @@ VITE_WS_URL=ws://localhost:8000/ws
 VITE_API_URL=http://localhost:8000
 ```
 
-Use your deployed backend URLs in non-local environments.
-
 ## Installation
 
-From the `frontend` directory:
+From `frontend/`:
 
 ```bash
 pnpm install
@@ -70,8 +85,7 @@ pnpm install
 pnpm dev
 ```
 
-Default local URL:
-- `http://localhost:5173`
+Default URL: `http://localhost:5173`
 
 ## Build and Preview
 
@@ -82,14 +96,11 @@ pnpm preview
 
 ## Browser Notes
 
-- Microphone permissions are required for speech recognition.
-- Speech synthesis voice availability depends on browser/OS voice packs.
-- For best results, use a Chromium-based browser with Web Speech API support.
+- Microphone permission is required for speech recognition.
+- Available TTS voices depend on browser and operating system.
 
 ## Backend Dependency
 
-This frontend requires the backend service to be running and reachable at:
+Frontend requires the backend to be reachable at:
 - `VITE_API_URL`
 - `VITE_WS_URL`
-
-If upload works but presentation control does not, verify WebSocket URL and CORS settings on the backend.
