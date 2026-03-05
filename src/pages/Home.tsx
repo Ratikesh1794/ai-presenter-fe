@@ -6,6 +6,7 @@ import { VoiceOrb } from "../components/VoiceOrb";
 import { ConnectionBadge } from "../components/ConnectionBadge";
 import { ChatDrawer } from "../components/ChatDrawer";
 import { UploadScreen } from "../components/Uploadscreen";
+import { Logo } from "../components/common/Logo";
 import { theme } from "../theme";
 import { GlobalStyles } from "../theme.styles";
 import type { Slide } from "../slides/slideData";
@@ -227,24 +228,7 @@ export default function Home() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <span
-                style={{
-                  fontFamily: theme.fonts.display,
-                  fontWeight: 700,
-                  fontSize: 20,
-                  letterSpacing: "0.1em",
-                  background: `linear-gradient(135deg, ${theme.colors.cyan["400"]} 0%, ${theme.colors.cyan["300"]} 50%, ${theme.colors.white["90"]} 100%)`,
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                  textTransform: "uppercase",
-                  textShadow: `0 0 20px ${theme.colors.cyan.glow}, 0 0 40px ${theme.colors.cyan["400"]}15`,
-                  filter: `drop-shadow(0 0 8px ${theme.colors.cyan["400"]}40)`,
-                  position: "relative",
-                }}
-              >
-                PRESENTO
-              </span>
+              <Logo size="md" variant="header" />
 
               <div
                 style={{
